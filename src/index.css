@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@theme {
+  --color-zotero-bg: #f5f5f5;
+  --color-zotero-sidebar: #ececec;
+  --color-zotero-header: #e4e4e4;
+  --color-zotero-accent: #3a7bd5;
+  --color-zotero-accent-hover: #2d6ac4;
+  --color-zotero-border: #d0d0d0;
+  --color-zotero-text: #1a1a1a;
+  --color-zotero-text-secondary: #666;
+  --color-zotero-highlight: #ffefa4;
+  --color-zotero-tag-bg: #e8f0fe;
+  --color-zotero-tag-text: #1a5fb4;
+  --color-zotero-selected: #d4e2f7;
+  --color-zotero-row-hover: #f0f4fa;
+  --color-zotero-pdf-bg: #525659;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  color: var(--color-zotero-text);
+  background: var(--color-zotero-bg);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.pdf-page canvas {
+  display: block;
+  margin: 0 auto;
+}
+
+.field-input {
+  width: 100%;
+  padding: 4px 8px;
+  font-size: 12px;
+  border: 1px solid var(--color-zotero-border);
+  border-radius: 4px;
+  outline: none;
+}
+.field-input:focus {
+  border-color: var(--color-zotero-accent);
+}
