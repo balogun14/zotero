@@ -17,7 +17,7 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/arxiv-pdf/, ''),
         configure: (proxy) => {
-          proxy.on('proxyRes', (proxyRes: IncomingMessage, req: IncomingMessage, res: ServerResponse) => {
+          proxy.on('proxyRes', (proxyRes: IncomingMessage, _req: IncomingMessage, res: ServerResponse) => {
             proxyRes.headers['access-control-allow-origin'] = '*';
             const status = proxyRes.statusCode || 0;
             if (status >= 300 && status < 400 && proxyRes.headers.location) {
