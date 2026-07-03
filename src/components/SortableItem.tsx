@@ -4,7 +4,7 @@ import { useStore } from "../store/useStore";
 import { GripVertical, ChevronRight, ChevronDown, FileText, ExternalLink } from "lucide-react";
 import type { Paper } from "../types";
 
-export function SortableItem({ paper, index, isSelected }: { paper: Paper; index: number; isSelected: boolean }) {
+export function SortableItem({ paper, index, isSelected, onSelectMobile }: { paper: Paper; index: number; isSelected: boolean; onSelectMobile?: (id: string) => void }) {
   const { setSelectedPaper, toggleExpand, expandedPapers, openPdf } = useStore();
   const isExpanded = expandedPapers.has(paper.id);
 
@@ -23,9 +23,9 @@ export function SortableItem({ paper, index, isSelected }: { paper: Paper; index
       <div
         ref={setNodeRef}
         style={style}
-        onClick={() => setSelectedPaper(paper.id)}
+        onClick={() => { setSelectedPaper(paper.id); onSelectMobile?.(paper.id); }}
         onDoubleClick={() => openPdf(paper.id)}
-        className={`flex items-center border-b border-zotero-border/50 text-[12px] leading-tight cursor-pointer select-none ${
+        className={`flex items-center border-b border-zotero-border/50 text-[12px] leading-tight cursor-pointer select-none active:bg-zotero-selected/50 lg:active:bg-transparent ${
           isSelected
             ? "bg-zotero-selected"
             : index % 2 === 0

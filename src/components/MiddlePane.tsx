@@ -9,7 +9,7 @@ const SORT_LABELS: Record<string, string> = {
   date: "Date Added",
 };
 
-export function MiddlePane({ items }: { items: Paper[] }) {
+export function MiddlePane({ items, onSelectMobile }: { items: Paper[]; onSelectMobile?: (id: string) => void }) {
   const { sortField, sortDirection, setSortField, toggleSortDirection, selectedPaperId } = useStore();
 
   return (
@@ -46,6 +46,7 @@ export function MiddlePane({ items }: { items: Paper[] }) {
             paper={paper}
             index={idx}
             isSelected={selectedPaperId === paper.id}
+            onSelectMobile={onSelectMobile}
           />
         ))}
       </div>

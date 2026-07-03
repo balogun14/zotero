@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, X, FolderPlus, BookPlus } from "lucide-react";
+import { Search, X, FolderPlus, BookPlus, Menu, ArrowLeft } from "lucide-react";
 import { useStore } from "../store/useStore";
 
 export function Toolbar({
@@ -7,11 +7,17 @@ export function Toolbar({
   onSearchChange,
   selectedCount,
   totalCount,
+  onMenuClick,
+  onBackClick,
+  mobileDetailOpen,
 }: {
   searchQuery: string;
   onSearchChange: (q: string) => void;
   selectedCount: number;
   totalCount: number;
+  onMenuClick?: () => void;
+  onBackClick?: () => void;
+  mobileDetailOpen?: boolean;
 }) {
   const papers = useStore((s) => s.papers);
   const addCollection = useStore((s) => s.addCollection);
@@ -66,7 +72,21 @@ export function Toolbar({
   return (
     <>
       <div className="flex items-center h-[38px] px-2 border-b border-zotero-border bg-zotero-header gap-2 flex-shrink-0">
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+        {/* Mobile: hamburger / back button */}
+        <div className="lg:hidden flex items-center flex-shrink-0">
+          {mobileDetailOpen ? (
+            <button onClick={onBackClick} className="p-1 -ml-1 hover:bg-black/10 rounded" title="Back to list">
+              <ArrowLeft size={16} />
+            </button>
+          ) : (
+            <button onClick={onMenuClick} className="p-1 -ml-1 hover:bg-black/10 rounded" title="Collections">
+              <Menu size={16} />
+            </button>
+          )}
+        </div>
+
+        {/* Desktop: New Collection / New Item buttons */}
+        <div className="hidden lg:flex items-center gap-1.5 flex-shrink-0">
           <button
             onClick={() => setShowNewCollection(true)}
             className="px-2 py-1 text-[11px] border border-zotero-border rounded bg-white hover:bg-gray-100 transition-colors font-medium flex items-center gap-1"
@@ -91,8 +111,8 @@ export function Toolbar({
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search all fields..."
-            className="w-[200px] text-[12px] bg-transparent outline-none placeholder:text-zotero-text-secondary/60"
+            placeholder="Search..."
+            className="w-[120px] lg:w-[200px] text-[12px] bg-transparent outline-none placeholder:text-zotero-text-secondary/60"
           />
           {searchQuery && (
             <button onClick={() => onSearchChange("")} className="flex-shrink-0 hover:bg-black/10 rounded">
@@ -101,10 +121,9 @@ export function Toolbar({
           )}
         </div>
 
-        <div className="text-[11px] text-zotero-text-secondary flex-shrink-0 tabular-nums">
-          {selectedCount > 0 && <span className="font-semibold text-zotero-text">{selectedCount} selected</span>}
-          {selectedCount > 0 && " / "}
-          {totalCount} items
+        <div className="text-[11px] text-zotero-text-secondary flex-shrink-0 tabular-nums whitespace-nowrap">
+          {selectedCount > 0 && <span className="font-semibold text-zotero-text hidden sm:inline">{selectedCount} selected / </span>}
+          {totalCount}
         </div>
       </div>
 
