@@ -7,6 +7,8 @@ import { MiddlePane } from "./components/MiddlePane";
 import { RightPane } from "./components/RightPane";
 import { Toolbar } from "./components/Toolbar";
 import { MobileNav } from "./components/MobileNav";
+import { BrandLoader } from "./components/BrandLoader";
+import { BrandFooter } from "./components/BrandFooter";
 import type { Paper } from "./types";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfjsWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -115,6 +117,7 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-full">
+      <BrandLoader />
       <Toolbar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -185,6 +188,9 @@ export default function App() {
           </div>
         )}
       </div>
+
+      {/* Footer */}
+      <BrandFooter />
 
       {/* Mobile bottom nav */}
       <div className="lg:hidden">
