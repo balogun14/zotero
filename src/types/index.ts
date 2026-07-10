@@ -13,12 +13,18 @@ export interface Paper {
   journal: string;
   url: string;
   pdfUrl: string;
+  source?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Collection {
   id: string;
   name: string;
   parentId: string | null;
+  isPublic?: boolean;
+  shareSlug?: string | null;
 }
 
 export type SortField = "title" | "author" | "year" | "date";

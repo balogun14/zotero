@@ -12,6 +12,10 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
       '/arxiv-pdf': {
         target: 'https://arxiv.org',
         changeOrigin: true,
