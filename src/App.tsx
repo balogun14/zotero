@@ -1,7 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { Routes, Route } from "react-router-dom";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { useStore } from "./store/useStore";
+import { useStore, initStore } from "./store/useStore";
 import { LeftPane } from "./components/LeftPane";
 import { MiddlePane } from "./components/MiddlePane";
 import { RightPane } from "./components/RightPane";
@@ -9,6 +10,7 @@ import { Toolbar } from "./components/Toolbar";
 import { MobileNav } from "./components/MobileNav";
 import { BrandLoader } from "./components/BrandLoader";
 import { BrandFooter } from "./components/BrandFooter";
+import { SharePage } from "./components/SharePage";
 import type { Paper } from "./types";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfjsWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -19,6 +21,10 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 type MobileView = "collections" | "items" | "detail";
 
 export default function App() {
+  useEffect(() => {
+    initStore();
+  }, []);
+
   const selectedCollection = useStore((s) => s.selectedCollection);
   const selectedTags = useStore((s) => s.selectedTags);
   const searchQuery = useStore((s) => s.searchQuery);
@@ -116,107 +122,115 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <BrandLoader />
-      <Toolbar
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        selectedCount={selectedPaperId ? 1 : 0}
-        totalCount={papers.length}
-        onMenuClick={handleMobileOpenCollections}
-        onBackClick={handleMobileBackToItems}
-        mobileDetailOpen={mobileDetailOpen}
+    <Routes>
+      <Route path="/share/:slug" element={<SharePage />} />
+      <Route
+        path="/*"
+        element={
+          <div className="flex flex-col h-full">
+            <BrandLoader />
+            <Toolbar
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              selectedCount={selectedPaperId ? 1 : 0}
+              totalCount={papers.length}
+              onMenuClick={handleMobileOpenCollections}
+              onBackClick={handleMobileBackToItems}
+              mobileDetailOpen={mobileDetailOpen}
+            />
+
+            {/* Desktop: 3-pane layout */}
+            <div className="hidden lg:flex flex-1 min-h-0">
+              <div style={{ width: leftWidth }} className="flex-shrink-0 flex flex-col border-r border-zotero-border bg-zotero-sidebar">
+                <LeftPane />
+              </div>
+              <div
+                className="w-1 flex-shrink-0 cursor-col-resize bg-zotero-border hover:bg-zotero-accent transition-colors"
+                onMouseDown={startDrag("left")}
+              />
+              <div style={{ width: middleWidth }} className="flex-shrink-0 flex flex-col border-r border-zotero-border">
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={items.map((p) => p.id)} strategy={verticalListSortingStrategy}>
+                    <MiddlePane items={items} />
+                  </SortableContext>
+                </DndContext>
+              </div>
+              <div
+                className="w-1 flex-shrink-0 cursor-col-resize bg-zotero-border hover:bg-zotero-accent transition-colors"
+                onMouseDown={startDrag("middle")}
+              />
+              <div className="flex-1 min-w-0 flex flex-col bg-white">
+                <RightPane />
+              </div>
+            </div>
+
+            {/* Mobile: single-view layout */}
+            <div className="lg:hidden flex flex-1 min-h-0 relative">
+              {/* Collections view (overlay) */}
+              {mobileMenuOpen && (
+                <div className="absolute inset-0 z-30 flex flex-col bg-zotero-sidebar">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-zotero-border bg-zotero-header">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-zotero-text-secondary">Collections</span>
+                    <button onClick={() => setMobileMenuOpen(false)} className="px-2 py-0.5 text-xs border border-zotero-border rounded hover:bg-gray-100">
+                      Close
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto min-h-0">
+                    <LeftPane />
+                  </div>
+                </div>
+              )}
+
+              {/* Items view */}
+              <div className={`flex-1 flex flex-col min-h-0 ${mobileMenuOpen ? "hidden" : ""}`}>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={items.map((p) => p.id)} strategy={verticalListSortingStrategy}>
+                    <MiddlePane items={items} onSelectMobile={handleMobileSelectPaper} />
+                  </SortableContext>
+                </DndContext>
+              </div>
+
+              {/* Detail view (slides in from right) */}
+              {mobileDetailOpen && selectedPaperId && (
+                <div className="absolute inset-0 z-20 flex flex-col bg-white">
+                  <div className="flex-1 min-h-0 overflow-y-auto">
+                    <RightPane />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <BrandFooter />
+
+            {/* Mobile bottom nav */}
+            <div className="lg:hidden">
+              <MobileNav
+                currentView={mobileDetailOpen ? "detail" : mobileView}
+                onSelect={(v) => {
+                  if (v === "collections") setMobileMenuOpen(true);
+                  else if (v === "detail" && selectedPaperId) setMobileDetailOpen(true);
+                  setMobileView(v);
+                }}
+                hasSelection={!!selectedPaperId}
+              />
+            </div>
+
+            {/* Fullscreen PDF modal */}
+            {pdfPaperId && (
+              <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center" onClick={closePdf}>
+                <div
+                  className="bg-white w-[90vw] h-[90vh] max-lg:w-full max-lg:h-full max-lg:rounded-none rounded-lg shadow-2xl flex flex-col overflow-hidden"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <PDFViewerInline paperId={pdfPaperId} onClose={closePdf} />
+                </div>
+              </div>
+            )}
+          </div>
+        }
       />
-
-      {/* Desktop: 3-pane layout */}
-      <div className="hidden lg:flex flex-1 min-h-0">
-        <div style={{ width: leftWidth }} className="flex-shrink-0 flex flex-col border-r border-zotero-border bg-zotero-sidebar">
-          <LeftPane />
-        </div>
-        <div
-          className="w-1 flex-shrink-0 cursor-col-resize bg-zotero-border hover:bg-zotero-accent transition-colors"
-          onMouseDown={startDrag("left")}
-        />
-        <div style={{ width: middleWidth }} className="flex-shrink-0 flex flex-col border-r border-zotero-border">
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={items.map((p) => p.id)} strategy={verticalListSortingStrategy}>
-              <MiddlePane items={items} />
-            </SortableContext>
-          </DndContext>
-        </div>
-        <div
-          className="w-1 flex-shrink-0 cursor-col-resize bg-zotero-border hover:bg-zotero-accent transition-colors"
-          onMouseDown={startDrag("middle")}
-        />
-        <div className="flex-1 min-w-0 flex flex-col bg-white">
-          <RightPane />
-        </div>
-      </div>
-
-      {/* Mobile: single-view layout */}
-      <div className="lg:hidden flex flex-1 min-h-0 relative">
-        {/* Collections view (overlay) */}
-        {mobileMenuOpen && (
-          <div className="absolute inset-0 z-30 flex flex-col bg-zotero-sidebar">
-            <div className="flex items-center justify-between px-3 py-2 border-b border-zotero-border bg-zotero-header">
-              <span className="text-xs font-semibold uppercase tracking-wider text-zotero-text-secondary">Collections</span>
-              <button onClick={() => setMobileMenuOpen(false)} className="px-2 py-0.5 text-xs border border-zotero-border rounded hover:bg-gray-100">
-                Close
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto min-h-0">
-              <LeftPane />
-            </div>
-          </div>
-        )}
-
-        {/* Items view */}
-        <div className={`flex-1 flex flex-col min-h-0 ${mobileMenuOpen ? "hidden" : ""}`}>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={items.map((p) => p.id)} strategy={verticalListSortingStrategy}>
-              <MiddlePane items={items} onSelectMobile={handleMobileSelectPaper} />
-            </SortableContext>
-          </DndContext>
-        </div>
-
-        {/* Detail view (slides in from right) */}
-        {mobileDetailOpen && selectedPaperId && (
-          <div className="absolute inset-0 z-20 flex flex-col bg-white">
-            <div className="flex-1 min-h-0 overflow-y-auto">
-              <RightPane />
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Footer */}
-      <BrandFooter />
-
-      {/* Mobile bottom nav */}
-      <div className="lg:hidden">
-        <MobileNav
-          currentView={mobileDetailOpen ? "detail" : mobileView}
-          onSelect={(v) => {
-            if (v === "collections") setMobileMenuOpen(true);
-            else if (v === "detail" && selectedPaperId) setMobileDetailOpen(true);
-            setMobileView(v);
-          }}
-          hasSelection={!!selectedPaperId}
-        />
-      </div>
-
-      {/* Fullscreen PDF modal */}
-      {pdfPaperId && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center" onClick={closePdf}>
-          <div
-            className="bg-white w-[90vw] h-[90vh] max-lg:w-full max-lg:h-full max-lg:rounded-none rounded-lg shadow-2xl flex flex-col overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <PDFViewerInline paperId={pdfPaperId} onClose={closePdf} />
-          </div>
-        </div>
-      )}
-    </div>
+    </Routes>
   );
 }
 

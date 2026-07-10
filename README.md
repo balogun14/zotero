@@ -1,129 +1,158 @@
-# Zotero-ArXiv Library
+# Zotero Clone — Online Research Library
 
-> A pixel-perfect, pure-frontend clone of Zotero 9 with ~600 real arXiv papers across five AI/ML research collections. Built with React, TypeScript, Tailwind CSS, and pdfjs-dist.
-
-![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue)
-![React](https://img.shields.io/badge/React-19-61dafb)
-![Vite](https://img.shields.io/badge/Vite-8-646cff)
+A production-ready online research library built from a Zotero-style frontend. Store papers, let AI agents dump findings via API, and share collections publicly.
 
 ## Features
 
-- **3-pane resizable layout** — Left collection tree + tag filter, middle sortable item list with expandable rows, right detail pane
-- **~600 real arXiv papers** — All titles, authors, DOIs, and abstracts sourced from the arXiv API
-- **5 AI/ML collections**: LLM Alignment, Diffusion & Generative Models, Graph Neural Networks, Multimodal Learning, Efficient Inference & Quantization
-- **In-app PDF reader** — pdfjs-dist integration with page navigation, zoom controls, and fullscreen mode
-- **Drag-and-drop reordering** — Powered by dnd-kit
-- **Tag filtering** — Sidebar tag cloud + per-paper tag management
-- **Related papers** — Finds papers sharing tags or collections
-- **Real-time search** — Filters across title, author, abstract, and arXiv ID
-- **Deployable to Vercel** — Serverless PDF proxy included
-
-## Quick Start
-
-```bash
-npm install
-npm run dev
-```
-
-Open http://localhost:5173 in your browser.
+- **3-pane resizable layout** — Collections, paper list, detail pane
+- **In-app PDF reader** — pdfjs-dist with page navigation and zoom
+- **Real backend + SQLite database** — Persistent storage, not just local files
+- **AI agent endpoint** — `POST /api/agent/findings` with API key authentication
+- **Public sharing** — Make any collection public and share a link
+- **Search & tag filtering** — Full-text search across title, authors, abstract
+- **Docker support** — One-command deployment with Docker Compose
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Framework | React 19 + TypeScript |
-| Build | Vite 8 |
-| Styling | Tailwind CSS v4 |
+| Frontend | React 19 + TypeScript + Vite 8 + Tailwind CSS v4 |
+| Routing | react-router-dom |
 | State | Zustand |
-| Drag & Drop | @dnd-kit/core |
+| Backend | Express 5 + TypeScript |
+| Database | SQLite (better-sqlite3) |
 | PDF Viewer | pdfjs-dist v6 |
 | Icons | lucide-react |
 
-## Project Structure
+## Quick Start
 
-```
-zotero-clone/
-├── api/                    # Vercel serverless functions
-│   └── arxiv-pdf.ts        # arXiv PDF proxy (bypasses CORS)
-├── src/
-│   ├── components/         # React components
-│   │   ├── LeftPane.tsx    # Collection tree wrapper
-│   │   ├── CollectionTree.tsx
-│   │   ├── TagFilter.tsx
-│   │   ├── MiddlePane.tsx  # Sortable item list
-│   │   ├── SortableItem.tsx
-│   │   ├── RightPane.tsx   # Detail pane with tabs
-│   │   ├── InfoTab.tsx
-│   │   ├── AbstractTab.tsx
-│   │   ├── TagsTab.tsx
-│   │   ├── RelatedTab.tsx
-│   │   ├── PdfPane.tsx     # In-pane PDF reader
-│   │   └── Toolbar.tsx
-│   ├── store/
-│   │   └── useStore.ts     # Zustand store (single source of truth)
-│   ├── data/
-│   │   └── data.json       # 592 real arXiv papers
-│   ├── types/
-│   │   └── index.ts
-│   ├── utils/
-│   │   └── proxy.ts        # PDF URL proxy resolver
-│   ├── App.tsx
-│   ├── main.tsx
-│   └── index.css
-├── scripts/                # Data maintenance scripts
-│   ├── fetch-papers.mjs    # arXiv API fetcher
-│   ├── strip-latex.mjs     # LaTeX cleaner
-│   └── fix-pdf-urls.mjs    # URL normalizer
-├── vercel.json             # Vercel deployment config
-└── vite.config.ts
+### Local development
+
+```bash
+npm install
+
+# Terminal 1: start backend
+npm run server:dev
+
+# Terminal 2: start frontend
+npm run dev
 ```
 
-## Data
+Open http://localhost:5173. The frontend proxies `/api` requests to the backend at http://localhost:3000.
 
-All paper metadata lives in `src/data/data.json` as the single source of truth. Each entry:
+### Production build
 
-```json
-{
-  "id": "llm-alignment-1",
-  "arxivId": "2302.12345",
-  "title": "Training Language Models to Follow Instructions",
-  "authors": ["John Doe", "Jane Smith"],
-  "year": 2023,
-  "abstract": "...",
-  "doi": "10.48550/arXiv.2302.12345",
-  "collection": "LLM Alignment",
-  "tags": ["LLM", "Alignment", "RLHF"],
-  "url": "https://arxiv.org/abs/2302.12345",
-  "pdfUrl": "https://arxiv.org/pdf/2302.12345"
-}
+```bash
+npm install
+npm start
 ```
 
-To refresh or add papers, use the scripts in `scripts/`.
+This builds the frontend and starts the Express server on port 3000.
+
+## Configuration
+
+Copy `.env.example` to `.env` and set your values:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Description |
+|---|---|
+| `PORT` | Server port (default: 3000) |
+| `NODE_ENV` | `development` or `production` |
+| `AI_API_KEY` | Secret key for AI agents to add findings |
+| `DATABASE_URL` | SQLite file path (default: `./data/library.db`) |
+| `CORS_ORIGIN` | Allowed frontend origin in production |
+
+## AI Agent Integration
+
+Any AI agent or script can save findings to your library using the API:
+
+```bash
+curl -X POST http://localhost:3000/api/agent/findings \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-very-secret-api-key" \
+  -d '{
+    "title": "A paper the agent found",
+    "authors": ["AI Agent"],
+    "abstract": "Summary of the finding",
+    "url": "https://example.com/paper",
+    "pdfUrl": "https://example.com/paper.pdf",
+    "tags": ["ai", "research"],
+    "collection": "llm-alignment",
+    "year": 2026
+  }'
+```
+
+Bulk import:
+
+```bash
+curl -X POST http://localhost:3000/api/agent/findings/batch \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-very-secret-api-key" \
+  -d '{"items": [{...}, {...}]}'
+```
+
+## Public Sharing
+
+1. Hover over a collection in the left sidebar.
+2. Click the share icon.
+3. The public link is copied to your clipboard.
+
+Shared collections are accessible at `/share/:slug` and via the API at `/api/public/share/:slug`.
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/health` | Health check |
+| GET | `/api/papers` | List papers (filter by `collection`, `q`, `tag`) |
+| POST | `/api/papers` | Add a paper |
+| PATCH | `/api/papers/:id` | Update a paper |
+| DELETE | `/api/papers/:id` | Delete a paper |
+| GET | `/api/collections` | List collections |
+| POST | `/api/collections` | Create collection |
+| PATCH | `/api/collections/:id` | Update collection (share settings) |
+| DELETE | `/api/collections/:id` | Delete collection |
+| GET | `/api/tags` | List all tags with counts |
+| POST | `/api/agent/findings` | AI agent adds a finding |
+| POST | `/api/agent/findings/batch` | AI agent bulk import |
+| GET | `/api/public/share/:slug` | Public shared collection |
 
 ## Deployment
 
-### Vercel (recommended)
+### Docker Compose (recommended)
 
 ```bash
-npm i -g vercel
-vercel
+# Set a strong API key
+export AI_API_KEY=$(openssl rand -hex 32)
+
+# Build and run
+docker-compose up --build -d
 ```
 
-The `api/arxiv-pdf.ts` function is automatically deployed as a serverless function. Vercel's build process sets `VERCEL=1`, which tells the bundle to route PDF requests through the proxy.
+Your library is now running on http://localhost:3000.
 
-### Static hosting
+### Manual server deployment
 
 ```bash
+npm install
 npm run build
-# Deploy dist/ to any static host (Netlify, Cloudflare Pages, S3, etc.)
+NODE_ENV=production AI_API_KEY=your-key npm run server
 ```
 
-PDFs will use `corsproxy.io` as a fallback. For production use, deploy your own proxy.
+### Cloud platforms
 
-## Contributing
+The app is a standard Node.js server. Deploy the repository to:
+- **Railway**, **Render**, or **Fly.io** — use the `npm start` command
+- **Vercel** — the frontend builds as before, but you will need a separate persistent backend host for the database
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and pull request guidelines.
+> Note: SQLite writes to the local filesystem. On serverless platforms like Vercel, use a hosted PostgreSQL database instead.
+
+## Data Persistence
+
+The SQLite database is stored at `./data/library.db` by default. Back up this file to preserve your library.
 
 ## License
 

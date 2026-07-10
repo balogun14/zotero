@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { Paper, Collection, SortField, SortDirection, RightPaneTab } from "../types";
-import papersData from "../data/data.json";
+import { api } from "../lib/api";
 
 interface AppState {
   papers: Paper[];
@@ -14,6 +14,8 @@ interface AppState {
   searchQuery: string;
   rightPaneTab: RightPaneTab;
   pdfPaperId: string | null;
+  isLoading: boolean;
+  error: string | null;
 
   setSelectedCollection: (id: string | null) => void;
   toggleTag: (tag: string) => void;
@@ -25,8 +27,10 @@ interface AppState {
   setRightPaneTab: (tab: RightPaneTab) => void;
   openPdf: (id: string) => void;
   closePdf: () => void;
-  addCollection: (name: string) => void;
-  addPaper: (paper: Omit<Paper, "id" | "arxivId" | "url" | "pdfUrl" | "categories">) => void;
+  addCollection: (name: string) => Promise<void>;
+  addPaper: (paper: Partial<Paper>) => Promise<void>;
+  updateCollection: (id: string, updates: Partial<Collection>) => Promise<void>;
+  refresh: () => Promise<void>;
 
   filteredAndSortedPapers: () => Paper[];
   allTags: () => { tag: string; count: number }[];
@@ -34,16 +38,7 @@ interface AppState {
   paperById: (id: string) => Paper | undefined;
 }
 
-const defaultCollections: Collection[] = [
-  { id: "all", name: "My Library", parentId: null },
-  { id: "llm-alignment", name: "LLM Alignment", parentId: "all" },
-  { id: "diffusion", name: "Diffusion & Generative Models", parentId: "all" },
-  { id: "gnn", name: "Graph Neural Networks", parentId: "all" },
-  { id: "multimodal", name: "Multimodal Learning", parentId: "all" },
-  { id: "efficient-inference", name: "Efficient Inference & Quantization", parentId: "all" },
-];
-
-const collectionToDataKey: Record<string, string> = {
+const collectionNameMap: Record<string, string> = {
   "llm-alignment": "LLM Alignment",
   diffusion: "Diffusion & Generative Models",
   gnn: "Graph Neural Networks",
@@ -52,8 +47,8 @@ const collectionToDataKey: Record<string, string> = {
 };
 
 export const useStore = create<AppState>((set, get) => ({
-  papers: papersData as Paper[],
-  collections: defaultCollections,
+  papers: [],
+  collections: [],
   selectedCollection: "all",
   selectedTags: [],
   selectedPaperId: null,
@@ -63,8 +58,23 @@ export const useStore = create<AppState>((set, get) => ({
   searchQuery: "",
   rightPaneTab: "info",
   pdfPaperId: null,
+  isLoading: false,
+  error: null,
 
-  setSelectedCollection: (id) => set({ selectedCollection: id, rightPaneTab: "info" }),
+  refresh: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const [{ papers }, { collections }] = await Promise.all([
+        api.getPapers({ collection: get().selectedCollection, q: get().searchQuery, tag: get().selectedTags[0] }),
+        api.getCollections(),
+      ]);
+      set({ papers, collections, isLoading: false });
+    } catch (err: any) {
+      set({ error: err.message || 'Failed to load library', isLoading: false });
+    }
+  },
+
+  setSelectedCollection: (id) => set({ selectedCollection: id, rightPaneTab: "info", selectedTags: [] }),
 
   toggleTag: (tag) =>
     set((s) => {
@@ -97,39 +107,33 @@ export const useStore = create<AppState>((set, get) => ({
 
   closePdf: () => set({ pdfPaperId: null, rightPaneTab: "info" }),
 
-  addCollection: (name) =>
-    set((s) => {
-      const id = "custom-collection-" + Date.now();
-      return { collections: [...s.collections, { id, name, parentId: "all" }] };
-    }),
+  addCollection: async (name) => {
+    const { collection } = await api.createCollection({ name, parentId: "all" });
+    set((s) => ({ collections: [...s.collections, collection] }));
+  },
 
-  addPaper: (paper) =>
-    set((s) => {
-      const id = "custom-paper-" + Date.now();
-      const newPaper: Paper = {
-        ...paper,
-        id,
-        arxivId: "",
-        url: "",
-        pdfUrl: "",
-        categories: [],
-        tags: paper.tags || [],
-        journal: paper.journal || "",
-        doi: paper.doi || "",
-      };
-      return { papers: [...s.papers, newPaper] };
-    }),
+  addPaper: async (paper) => {
+    const { paper: created } = await api.createPaper({
+      ...paper,
+      collection: get().selectedCollection || "all",
+    });
+    set((s) => ({ papers: [...s.papers, created] }));
+  },
+
+  updateCollection: async (id, updates) => {
+    const { collection: updated } = await api.updateCollection(id, updates);
+    set((s) => ({
+      collections: s.collections.map((c) => (c.id === id ? updated : c)),
+    }));
+  },
 
   filteredAndSortedPapers: () => {
     const { papers, selectedCollection, selectedTags, searchQuery, sortField, sortDirection } = get();
     let filtered = papers;
 
     if (selectedCollection && selectedCollection !== "all") {
-      const coll = get().collections.find((c) => c.id === selectedCollection);
-      const collName = coll?.name || collectionToDataKey[selectedCollection];
-      if (collName) {
-        filtered = filtered.filter((p) => p.collection === collName);
-      }
+      const collName = collectionNameMap[selectedCollection] || selectedCollection;
+      filtered = filtered.filter((p) => p.collection === collName || p.collection === selectedCollection);
     }
 
     if (selectedTags.length > 0) {
@@ -143,7 +147,7 @@ export const useStore = create<AppState>((set, get) => ({
           p.title.toLowerCase().includes(q) ||
           p.authors.some((a) => a.toLowerCase().includes(q)) ||
           p.abstract.toLowerCase().includes(q) ||
-          p.arxivId.toLowerCase().includes(q)
+          (p.arxivId || "").toLowerCase().includes(q)
       );
     }
 
@@ -151,8 +155,8 @@ export const useStore = create<AppState>((set, get) => ({
       let cmp = 0;
       if (sortField === "title") cmp = a.title.localeCompare(b.title);
       else if (sortField === "author") cmp = (a.authors[0] || "").localeCompare(b.authors[0] || "");
-      else if (sortField === "year") cmp = a.year - b.year;
-      else if (sortField === "date") cmp = a.date.localeCompare(b.date);
+      else if (sortField === "year") cmp = (a.year || 0) - (b.year || 0);
+      else if (sortField === "date") cmp = (a.date || "").localeCompare(b.date || "");
       return sortDirection === "asc" ? cmp : -cmp;
     });
 
@@ -163,9 +167,7 @@ export const useStore = create<AppState>((set, get) => ({
     const { papers, selectedCollection } = get();
     let filtered = papers;
     if (selectedCollection && selectedCollection !== "all") {
-      const coll = get().collections.find((c) => c.id === selectedCollection);
-      const collName = coll?.name || collectionToDataKey[selectedCollection];
-      if (collName) filtered = filtered.filter((p) => p.collection === collName);
+      filtered = filtered.filter((p) => p.collection === selectedCollection);
     }
     const tagMap = new Map<string, number>();
     for (const p of filtered) {
@@ -192,3 +194,13 @@ export const useStore = create<AppState>((set, get) => ({
 
   paperById: (id) => get().papers.find((p) => p.id === id),
 }));
+
+// Auto-load library on first use
+let initialized = false;
+export function initStore() {
+  if (initialized) return;
+  initialized = true;
+  useStore.getState().refresh().catch((err) => {
+    console.error("Failed to initialize store:", err);
+  });
+}
